@@ -20,28 +20,50 @@ type User struct {
 }
 
 type JsonUser struct {
-	ID       int64
-	Username string
-	Password string
-	Email    string
+	ID       int64  `json:"id"`
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"`
 }
 
-func (u JsonUser) User() User {
-	return User{
-		ID:       sql.NullInt64{Int64: u.ID, Valid: u.ID >= 0},
-		Username: sql.NullString{String: u.Username, Valid: len(u.Username) > 0},
-		Password: sql.NullString{String: u.Password, Valid: len(u.Password) > 0},
-		Email:    sql.NullString{String: u.Email, Valid: len(u.Email) > 0},
+func (u User) JSONUser() JsonUser {
+	id, _ := u.ID.Value()
+	username, _ := u.Username.Value()
+	passwd, _ := u.Password.Value()
+	var password string
+	var ok bool
+	if password, ok = passwd.(string); !ok {
+		password = ""
+	}
+	email, _ := u.Email.Value()
+
+	return JsonUser{
+		ID:       id.(int64),
+		Username: username.(string),
+		Password: password,
+		Email:    email.(string),
 	}
 }
 
-func (u User) MarshalJSON() ([]byte, error) {
-	return json.Marshal(JsonUser{
-		ID:       u.ID.Int64,
-		Username: u.Username.String,
-		Password: u.Password.String,
-		Email:    u.Email.String,
-	})
+func (u JsonUser) User() User {
+	var user User
+	if err := user.ID.Scan(u.ID); err != nil {
+		panic(err)
+	}
+	if err := user.Username.Scan(u.Username); err != nil {
+		panic(err)
+	}
+	if err := user.Password.Scan(u.Password); err != nil {
+		panic(err)
+	}
+	if err := user.Email.Scan(u.Email); err != nil {
+		panic(err)
+	}
+	return user
+}
+
+func (u *User) MarshalJSON() ([]byte, error) {
+	return json.Marshal(u.JSONUser())
 }
 
 func (u *User) UnmarshalJSON(data []byte) error {
@@ -52,8 +74,6 @@ func (u *User) UnmarshalJSON(data []byte) error {
 	*u = ju.User()
 	return nil
 }
-
-type Users []User
 
 type DB struct {
 	db *sql.DB
@@ -109,6 +129,14 @@ func main() {
 		users = append(users, user)
 	}
 	fmt.Println(users)
+
+	fmt.Println("marshal:")
+	data, err := json.Marshal(users)
+	if err == nil {
+		fmt.Println(string(data))
+	} else {
+		panic(err)
+	}
 
 	router := gin.Default()
 
