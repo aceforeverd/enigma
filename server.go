@@ -12,67 +12,66 @@ import (
 	"net/http"
 )
 
+type NullInt sql.NullInt64
+type NullString sql.NullString
+
 type User struct {
-	ID       sql.NullInt64
-	Username sql.NullString
-	Password sql.NullString
-	Email    sql.NullString
+	ID       NullInt `json:"id"`
+	Username NullString `json:"username"`
+	Password NullString `json:"password"`
+	Email    NullString `json:"email"`
 }
 
-type JsonUser struct {
-	ID       int64  `json:"id"`
-	Username string `json:"username"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
+func (s *NullInt) MarshalJSON() ([]byte, error) {
+	if !s.Valid {
+		return []byte{}, nil
+	}
+	return json.Marshal(s.Int64)
 }
 
-func (u User) JSONUser() JsonUser {
-	id, _ := u.ID.Value()
-	username, _ := u.Username.Value()
-	passwd, _ := u.Password.Value()
-	var password string
-	var ok bool
-	if password, ok = passwd.(string); !ok {
-		password = ""
-	}
-	email, _ := u.Email.Value()
-
-	return JsonUser{
-		ID:       id.(int64),
-		Username: username.(string),
-		Password: password,
-		Email:    email.(string),
-	}
-}
-
-func (u JsonUser) User() User {
-	var user User
-	if err := user.ID.Scan(u.ID); err != nil {
-		panic(err)
-	}
-	if err := user.Username.Scan(u.Username); err != nil {
-		panic(err)
-	}
-	if err := user.Password.Scan(u.Password); err != nil {
-		panic(err)
-	}
-	if err := user.Email.Scan(u.Email); err != nil {
-		panic(err)
-	}
-	return user
-}
-
-func (u *User) MarshalJSON() ([]byte, error) {
-	return json.Marshal(u.JSONUser())
-}
-
-func (u *User) UnmarshalJSON(data []byte) error {
-	var ju JsonUser
-	if err := json.Unmarshal(data, &ju); err != nil {
+func (s *NullInt) Scan(value interface{}) error {
+	var v sql.NullInt64
+	if err := v.Scan(value); err != nil {
+		log.Fatal(err)
 		return err
 	}
-	*u = ju.User()
+	*s = NullInt(v)
 	return nil
+}
+
+func (s *NullInt) UnmarshalJSON(data []byte) error {
+	err := json.Unmarshal(data, &s.Int64)
+	s.Valid = true
+	if err != nil {
+		s.Valid = false
+	}
+	return err
+}
+
+func (s *NullString) MarshalJSON() ([]byte, error) {
+	if !s.Valid {
+		return json.Marshal("")
+	}
+	return json.Marshal(s.String)
+}
+
+func (s *NullString) Scan(data interface{}) error {
+	var str sql.NullString
+	if err := str.Scan(data); err != nil {
+		log.Fatal(err)
+		return err
+	}
+	*s = NullString(str)
+	return nil
+}
+
+func (s *NullString) UnmarshalJSON(data []byte) error {
+	err := json.Unmarshal(data, &s.String)
+	s.Valid = true
+	if err != nil {
+		s.Valid = false
+	}
+	return err
 }
 
 type DB struct {
@@ -81,14 +80,6 @@ type DB struct {
 
 func (u User) String() string {
 	return fmt.Sprintln(u.ID, u.Username, u.Password, u.Email)
-}
-
-func (u User) JsonEncode() []byte {
-	bytes, err := json.Marshal(u)
-	if err != nil {
-		return []byte{}
-	}
-	return bytes
 }
 
 func (d *DB) init(driveName string, dataSource string) error {
