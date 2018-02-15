@@ -1,20 +1,16 @@
-package main
+package repository
 
 import (
 	"database/sql"
-	"encoding/json"
-	"flag"
 	"fmt"
-	"github.com/gin-gonic/gin"
-	_ "github.com/go-sql-driver/mysql"
+	"encoding/json"
 	"log"
-	"net/http"
 )
 
 // NullInt sql.NullInt represent nil or nil
 type NullInt sql.NullInt64
 
-// NullString sql.NullStrine represent nil or string
+// NullString sql.NullString represent nil or string
 type NullString sql.NullString
 
 // User struct in processing
@@ -95,27 +91,16 @@ func (s *NullString) UnmarshalJSON(data []byte) error {
 
 // UserRepoIml implement the UserRepo interface
 type UserRepoIml struct {
-	db        *sql.DB
-	tableName string
+	DB *sql.DB
 }
 
 func (u User) String() string {
 	return fmt.Sprintln(u.ID, u.Username, u.Password, u.Email)
 }
 
-// InitDB initial a database connection
-func InitDB(driveName string, dataSource string) (*sql.DB, error) {
-	db, err := sql.Open(driveName, dataSource)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
 // GetAll implement UserRepo.GetAll()
 func (repo *UserRepoIml) GetAll() ([]User, error) {
-	rows, err := repo.db.Query("SELECT id, username, password, email from user")
+	rows, err := repo.DB.Query("SELECT id, username, password, email from user")
 	if err != nil {
 		return []User{}, err
 	}
@@ -133,7 +118,7 @@ func (repo *UserRepoIml) GetAll() ([]User, error) {
 
 // GetByID implement UserRepo.GetByID
 func (repo *UserRepoIml) GetByID(id int) (User, error) {
-	row := repo.db.QueryRow("SELECT id, username, password, email FROM user WHERE id=?", id)
+	row := repo.DB.QueryRow("SELECT id, username, password, email FROM user WHERE id=?", id)
 	var user User
 	if err := row.Scan(&user.ID, &user.Email, &user.Username, &user.Password); err != nil {
 		return User{}, err
@@ -143,7 +128,7 @@ func (repo *UserRepoIml) GetByID(id int) (User, error) {
 
 // GetByUsername implement UserRepo.GetByUsername
 func (repo *UserRepoIml) GetByUsername(name string) (User, error) {
-	row := repo.db.QueryRow("SELECT id, username, password, email FROM user WHERE username=?", name)
+	row := repo.DB.QueryRow("SELECT id, username, password, email FROM user WHERE username=?", name)
 	var user User
 	if err := row.Scan(&user.ID, &user.Email, &user.Username, &user.Password); err != nil {
 		return User{}, err
@@ -153,7 +138,7 @@ func (repo *UserRepoIml) GetByUsername(name string) (User, error) {
 
 // Update implement UserRepo.Update
 func (repo *UserRepoIml) Update(user User) (User, error) {
-	_, err := repo.db.Exec("UPDATE user set username=?,password=?,email=? WHERE id=?",
+	_, err := repo.DB.Exec("UPDATE user set username=?,password=?,email=? WHERE id=?",
 		user.Username, user.Password, user.Email, user.ID)
 	if err != nil {
 		return User{}, err
@@ -163,13 +148,13 @@ func (repo *UserRepoIml) Update(user User) (User, error) {
 
 // Delete implement UserRepo.Delete
 func (repo *UserRepoIml) Delete(user User) error {
-	_, err := repo.db.Exec("DELETE FROM user WHERE id=?", user.ID)
+	_, err := repo.DB.Exec("DELETE FROM user WHERE id=?", user.ID)
 	return err
 }
 
 // Save implement UserRepo.Save
 func (repo *UserRepoIml) Save(user User) (User, error) {
-	result, err := repo.db.Exec("INSERT INTO user (username, password, email) VALUES (?, ?, ?)",
+	result, err := repo.DB.Exec("INSERT INTO user (username, password, email) VALUES (?, ?, ?)",
 		user.Username, user.Password, user.Email)
 	if err != nil {
 		return User{}, err
@@ -181,39 +166,4 @@ func (repo *UserRepoIml) Save(user User) (User, error) {
 	}
 	user.ID = NullInt{Int64: id, Valid: true}
 	return user, nil
-}
-
-func main() {
-	port := flag.String("port", ":8080", "running port")
-	flag.Parse()
-
-	db, err := InitDB("mysql", "test:test@/TEST")
-	if err != nil {
-		log.Fatal("openning DB", err)
-	}
-	var userRepo UserRepo
-	userRepo = &UserRepoIml{db: db, tableName: "user"}
-
-	userList, err := userRepo.GetAll()
-
-	fmt.Println("marshal:")
-	data, err := json.Marshal(userList)
-	if err == nil {
-		fmt.Println(string(data))
-	} else {
-		panic(err)
-	}
-
-	router := gin.Default()
-
-	router.GET("/name/:name", func(c *gin.Context) {
-		name := c.Param("name")
-		c.String(http.StatusOK, "hello %s", name)
-	})
-
-	router.GET("/user", func(c *gin.Context) {
-		c.String(http.StatusOK, "OK")
-	})
-
-	router.Run(*port)
 }
