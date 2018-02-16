@@ -2,8 +2,8 @@ package repository
 
 import (
 	"database/sql"
-	"fmt"
 	"encoding/json"
+	"fmt"
 	"log"
 )
 
@@ -21,8 +21,13 @@ type User struct {
 	Email    NullString `json:"email"`
 }
 
+func (u User) String() string {
+	return fmt.Sprintln(u.ID, u.Username, u.Password, u.Email)
+}
+
 // UserRepo interface for User Repository layer
 type UserRepo interface {
+	InitTable() error
 	GetAll() ([]User, error)
 	GetByID(id int) (User, error)
 	GetByUsername(name string) (User, error)
@@ -94,8 +99,18 @@ type UserRepoIml struct {
 	DB *sql.DB
 }
 
-func (u User) String() string {
-	return fmt.Sprintln(u.ID, u.Username, u.Password, u.Email)
+// InitTable create user table if not exists
+func (repo *UserRepoIml) InitTable() error {
+	stm := `CREATE TABLE IF NOT EXISTS user (
+			id INT NOT NULL AUTO_INCREMENT,
+			username VARCHAR(255) NOT NULL,
+			password VARCHAR(255) NOT NULL,
+			email VARCHAR(255),
+			PRIMARY KEY (id)) ENGINE=InnoDB`
+	if _, err := repo.DB.Exec(stm); err != nil {
+		return err
+	}
+	return nil
 }
 
 // GetAll implement UserRepo.GetAll()
@@ -105,6 +120,7 @@ func (repo *UserRepoIml) GetAll() ([]User, error) {
 		return []User{}, err
 	}
 	defer rows.Close()
+
 	userList := make([]User, 0)
 	for rows.Next() {
 		var user User

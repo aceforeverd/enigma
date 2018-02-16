@@ -32,6 +32,9 @@ func main() {
 	}
 	var userRepo repository.UserRepo
 	userRepo = &repository.UserRepoIml{DB: db}
+	if err := userRepo.InitTable(); err != nil {
+		log.Fatal(err)
+	}
 
 	userList, err := userRepo.GetAll()
 
