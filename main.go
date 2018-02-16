@@ -2,14 +2,12 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"flag"
-	"fmt"
+	"github.com/aceforeverd/enigma/controller"
 	"github.com/aceforeverd/enigma/repository"
 	"github.com/gin-gonic/gin"
 	_ "github.com/go-sql-driver/mysql"
 	"log"
-	"net/http"
 )
 
 // InitDB initial a database connection
@@ -36,26 +34,16 @@ func main() {
 		log.Fatal(err)
 	}
 
-	userList, err := userRepo.GetAll()
-
-	fmt.Println("marshal:")
-	data, err := json.Marshal(userList)
-	if err == nil {
-		fmt.Println(string(data))
-	} else {
-		panic(err)
-	}
+	var ctr controller.UserCon
+	ctr = &controller.UserController{Repo: userRepo}
 
 	router := gin.Default()
 
-	router.GET("/name/:name", func(c *gin.Context) {
-		name := c.Param("name")
-		c.String(http.StatusOK, "hello %s", name)
-	})
-
-	router.GET("/user", func(c *gin.Context) {
-		c.String(http.StatusOK, "OK")
-	})
+	router.GET("/users", ctr.GetAll)
+	router.GET("/user", ctr.GetUser)
+	router.POST("user", ctr.Save)
+	router.PUT("/user", ctr.Update)
+	router.DELETE("/user", ctr.Delete)
 
 	router.Run(*port)
 }

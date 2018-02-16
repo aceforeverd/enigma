@@ -15,10 +15,10 @@ type NullString sql.NullString
 
 // User struct in processing
 type User struct {
-	ID       NullInt    `json:"id"`
-	Username NullString `json:"username"`
-	Password NullString `json:"password"`
-	Email    NullString `json:"email"`
+	ID       NullInt    `json:"id" form:"id" binding:"required"`
+	Username NullString `json:"username" form:"username" binding:"required"`
+	Password NullString `json:"password" form:"password" binding:"required"`
+	Email    NullString `json:"email" form:"email" binding:"required"`
 }
 
 func (u User) String() string {
@@ -37,7 +37,7 @@ type UserRepo interface {
 }
 
 // MarshalJSON custom json.Marshal method for NullInt
-func (s *NullInt) MarshalJSON() ([]byte, error) {
+func (s NullInt) MarshalJSON() ([]byte, error) {
 	if !s.Valid {
 		return []byte{}, nil
 	}
@@ -66,7 +66,7 @@ func (s *NullInt) UnmarshalJSON(data []byte) error {
 }
 
 // MarshalJSON custom json.Marshal() for NullString
-func (s *NullString) MarshalJSON() ([]byte, error) {
+func (s NullString) MarshalJSON() ([]byte, error) {
 	if !s.Valid {
 		return json.Marshal("")
 	}
@@ -136,7 +136,7 @@ func (repo *UserRepoIml) GetAll() ([]User, error) {
 func (repo *UserRepoIml) GetByID(id int) (User, error) {
 	row := repo.DB.QueryRow("SELECT id, username, password, email FROM user WHERE id=?", id)
 	var user User
-	if err := row.Scan(&user.ID, &user.Email, &user.Username, &user.Password); err != nil {
+	if err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Email); err != nil {
 		return User{}, err
 	}
 	return user, nil
@@ -146,7 +146,7 @@ func (repo *UserRepoIml) GetByID(id int) (User, error) {
 func (repo *UserRepoIml) GetByUsername(name string) (User, error) {
 	row := repo.DB.QueryRow("SELECT id, username, password, email FROM user WHERE username=?", name)
 	var user User
-	if err := row.Scan(&user.ID, &user.Email, &user.Username, &user.Password); err != nil {
+	if err := row.Scan(&user.ID, &user.Username, &user.Password, &user.Email); err != nil {
 		return User{}, err
 	}
 	return user, nil
@@ -155,7 +155,7 @@ func (repo *UserRepoIml) GetByUsername(name string) (User, error) {
 // Update implement UserRepo.Update
 func (repo *UserRepoIml) Update(user User) (User, error) {
 	_, err := repo.DB.Exec("UPDATE user set username=?,password=?,email=? WHERE id=?",
-		user.Username, user.Password, user.Email, user.ID)
+		user.Username.String, user.Password.String, user.Email.String, user.ID.Int64)
 	if err != nil {
 		return User{}, err
 	}
@@ -164,14 +164,14 @@ func (repo *UserRepoIml) Update(user User) (User, error) {
 
 // Delete implement UserRepo.Delete
 func (repo *UserRepoIml) Delete(user User) error {
-	_, err := repo.DB.Exec("DELETE FROM user WHERE id=?", user.ID)
+	_, err := repo.DB.Exec("DELETE FROM user WHERE id=?", user.ID.Int64)
 	return err
 }
 
 // Save implement UserRepo.Save
 func (repo *UserRepoIml) Save(user User) (User, error) {
 	result, err := repo.DB.Exec("INSERT INTO user (username, password, email) VALUES (?, ?, ?)",
-		user.Username, user.Password, user.Email)
+		user.Username.String, user.Password.String, user.Email.String)
 	if err != nil {
 		return User{}, err
 	}
