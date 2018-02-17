@@ -1,11 +1,16 @@
 package controller
 
 import (
-	"fmt"
+	"database/sql"
+	"errors"
 	"github.com/aceforeverd/enigma/repository"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"strconv"
+)
+
+var (
+	ErrUserNotFound = errors.New("user not found")
 )
 
 type UserCon interface {
@@ -40,9 +45,12 @@ func (ctr *UserController) GetUser(c *gin.Context) {
 			return
 		}
 		if user, err := ctr.Repo.GetByID(id); err != nil {
+			if err == sql.ErrNoRows {
+				c.String(http.StatusAccepted, ErrUserNotFound.Error())
+				return
+			}
 			c.String(http.StatusInternalServerError, err.Error())
 		} else {
-			fmt.Println(user)
 			c.JSON(http.StatusOK, user)
 		}
 		return
@@ -52,6 +60,10 @@ func (ctr *UserController) GetUser(c *gin.Context) {
 	if len(name) > 0 {
 		user, err := ctr.Repo.GetByUsername(name)
 		if err != nil {
+			if err == sql.ErrNoRows {
+				c.String(http.StatusAccepted, ErrUserNotFound.Error())
+				return
+			}
 			c.String(http.StatusInternalServerError, err.Error())
 			return
 		}
@@ -69,7 +81,6 @@ func (ctr *UserController) Save(c *gin.Context) {
 		c.String(http.StatusBadRequest, err.Error())
 		return
 	}
-	fmt.Println("bind user: ", user)
 	saved, err := ctr.Repo.Save(user)
 	if err != nil {
 		c.String(http.StatusInternalServerError, err.Error())

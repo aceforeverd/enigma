@@ -2,28 +2,10 @@ package repository
 
 import (
 	"database/sql"
-	"encoding/json"
-	"fmt"
-	"log"
+	"github.com/aceforeverd/enigma/model"
 )
 
-// NullInt sql.NullInt represent nil or nil
-type NullInt sql.NullInt64
-
-// NullString sql.NullString represent nil or string
-type NullString sql.NullString
-
-// User struct in processing
-type User struct {
-	ID       NullInt    `json:"id" form:"id" binding:"required"`
-	Username NullString `json:"username" form:"username" binding:"required"`
-	Password NullString `json:"password" form:"password" binding:"required"`
-	Email    NullString `json:"email" form:"email" binding:"required"`
-}
-
-func (u User) String() string {
-	return fmt.Sprintln(u.ID, u.Username, u.Password, u.Email)
-}
+type User model.User
 
 // UserRepo interface for User Repository layer
 type UserRepo interface {
@@ -34,64 +16,6 @@ type UserRepo interface {
 	Update(user User) (User, error)
 	Delete(user User) error
 	Save(user User) (User, error)
-}
-
-// MarshalJSON custom json.Marshal method for NullInt
-func (s NullInt) MarshalJSON() ([]byte, error) {
-	if !s.Valid {
-		return []byte{}, nil
-	}
-	return json.Marshal(s.Int64)
-}
-
-// Scan implementation of sql.Scanner
-func (s *NullInt) Scan(value interface{}) error {
-	var v sql.NullInt64
-	if err := v.Scan(value); err != nil {
-		log.Fatal(err)
-		return err
-	}
-	*s = NullInt(v)
-	return nil
-}
-
-// UnmarshalJSON custom json.Unmarshal method for NullInt
-func (s *NullInt) UnmarshalJSON(data []byte) error {
-	err := json.Unmarshal(data, &s.Int64)
-	s.Valid = true
-	if err != nil {
-		s.Valid = false
-	}
-	return err
-}
-
-// MarshalJSON custom json.Marshal() for NullString
-func (s NullString) MarshalJSON() ([]byte, error) {
-	if !s.Valid {
-		return json.Marshal("")
-	}
-	return json.Marshal(s.String)
-}
-
-// Scan implement sql.Scanner for NullString
-func (s *NullString) Scan(data interface{}) error {
-	var str sql.NullString
-	if err := str.Scan(data); err != nil {
-		log.Fatal(err)
-		return err
-	}
-	*s = NullString(str)
-	return nil
-}
-
-// UnmarshalJSON custom json.Marshal() for NullString
-func (s *NullString) UnmarshalJSON(data []byte) error {
-	err := json.Unmarshal(data, &s.String)
-	s.Valid = true
-	if err != nil {
-		s.Valid = false
-	}
-	return err
 }
 
 // UserRepoIml implement the UserRepo interface
@@ -125,7 +49,7 @@ func (repo *UserRepoIml) GetAll() ([]User, error) {
 	for rows.Next() {
 		var user User
 		if err := rows.Scan(&user.ID, &user.Username, &user.Password, &user.Email); err != nil {
-			log.Fatal(err)
+			return []User{}, err
 		}
 		userList = append(userList, user)
 	}
@@ -180,6 +104,6 @@ func (repo *UserRepoIml) Save(user User) (User, error) {
 	if insertErr != nil {
 		return User{}, insertErr
 	}
-	user.ID = NullInt{Int64: id, Valid: true}
+	user.ID = model.NullInt{Int64: id, Valid: true}
 	return user, nil
 }
