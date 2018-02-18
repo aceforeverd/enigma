@@ -1,2 +1,2 @@
-# enigma
-web backend written in go
+# Enigma
+Restful Web Service written in go
